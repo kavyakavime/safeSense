@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hazard Detection Dashboard</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <h1>Hazard Detection Dashboard</h1>
+      <p>Real-time AI + IoT surveillance status</p>
+    </header>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Live Camera Feed</h2>
+        <div class="video-feed">
+          <img src="/video_feed" alt="Live camera feed" />
+          <div class="video-overlay">
+            <div class="overlay-line" id="overlay-vitals">Vitals: --</div>
+            <div class="overlay-line" id="overlay-status">Status: --</div>
+          </div>
+        </div>
+        <div class="kv">
+          <div>Vitals</div>
+          <div id="vitals">--</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Environmental Sensors</h2>
+        <div class="kv"><div>Temperature</div><div id="temp">--</div></div>
+        <div class="kv"><div>Humidity</div><div id="hum">--</div></div>
+        <div class="kv"><div>Proximity</div><div id="dist">--</div></div>
+        <div class="kv"><div>Last Update</div><div id="updated">--</div></div>
+      </div>
+
+      <div class="panel full">
+        <h2>Emergency Status</h2>
+        <div class="status" id="status">--</div>
+        <div class="reason" id="reason">--</div>
+      </div>
+
+      <div class="panel full">
+        <h2>Alert History</h2>
+        <div class="alert-actions">
+          <button id="demo-trigger">Trigger Demo Alert</button>
+          <span class="hint">Triggers a 10s CRITICAL alert</span>
+        </div>
+        <div class="alert-list" id="alert-list">No alerts yet.</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function formatTime(ts) {
+      if (!ts) return "--";
+      const d = new Date(ts * 1000);
+      return d.toLocaleTimeString();
+    }
+
+    async function refresh() {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+
+      const sensor = data.sensor || {};
+      const vitals = data.vitals || {};
+      const assessment = data.assessment || {};
+
+      document.getElementById('temp').textContent = sensor.temperature_c != null ? `${sensor.temperature_c} °C` : "--";
+      document.getElementById('hum').textContent = sensor.humidity != null ? `${sensor.humidity} %` : "--";
+      document.getElementById('dist').textContent = sensor.distance_cm != null ? `${sensor.distance_cm} cm` : "--";
+      document.getElementById('updated').textContent = formatTime(data.updated_at);
+
+      const vitalsText = vitals.heart_rate ? `HR ${vitals.heart_rate} bpm | Stress ${(vitals.stress * 100).toFixed(0)}%` : "--";
+      document.getElementById('vitals').textContent = vitalsText;
+      document.getElementById('overlay-vitals').textContent = `Vitals: ${vitalsText}`;
+
+      const level = assessment.level || "--";
+      document.getElementById('status').textContent = `${level} (${assessment.confidence || 0}%)`;
+      document.getElementById('status').setAttribute('data-level', level);
+      document.getElementById('reason').textContent = assessment.reason || "--";
+      document.getElementById('overlay-status').textContent = `Status: ${level}`;
+    }
+
+    async function refreshAlerts() {
+      const res = await fetch('/api/alerts?limit=8');
+      const data = await res.json();
+      const list = document.getElementById('alert-list');
+      const alerts = data.alerts || [];
+      if (!alerts.length) {
+        list.textContent = 'No alerts yet.';
+        return;
+      }
+
+      list.innerHTML = alerts.reverse().map(a => {
+        const ts = new Date((a.timestamp || 0) * 1000).toLocaleTimeString();
+        const temp = a.sensor?.temperature_c ?? 'NA';
+        const dist = a.sensor?.distance_cm ?? 'NA';
+        const hr = a.vitals?.heart_rate ?? 'NA';
+        const stress = a.vitals?.stress != null ? Math.round(a.vitals.stress * 100) + '%' : 'NA';
+        return `
+          <div class="alert-item">
+            <div class="alert-title">${a.level} (${a.confidence}%) - ${ts}</div>
+            <div class="alert-body">${a.reason}</div>
+            <div class="alert-meta">Temp ${temp}C | Dist ${dist}cm | HR ${hr} | Stress ${stress}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    refresh();
+    setInterval(refresh, 250);  // Update every 250ms for real-time feel
+    refreshAlerts();
+    setInterval(refreshAlerts, 5000);
+
+    document.getElementById('demo-trigger').addEventListener('click', async () => {
+      await fetch('/api/demo/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: 'CRITICAL', seconds: 10 })
+      });
+      refresh();
+      refreshAlerts();
+    });
+  </script>
+</body>
+</html>
