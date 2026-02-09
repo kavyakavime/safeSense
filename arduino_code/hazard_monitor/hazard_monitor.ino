@@ -51,13 +51,13 @@ String alertType = "NONE";
 unsigned long alertStartTime = 0;
 
 unsigned long lastUltrasonicRead = 0;
-const unsigned long ULTRASONIC_INTERVAL = 100;
+const unsigned long ULTRASONIC_INTERVAL = 50;  // Faster ultrasonic reads
 unsigned long lastDHTRead = 0;
-const unsigned long DHT_INTERVAL = 2000;
+const unsigned long DHT_INTERVAL = 2000;  // DHT11 hardware limit
 unsigned long lastDisplayUpdate = 0;
-const unsigned long DISPLAY_INTERVAL = 1000;
+const unsigned long DISPLAY_INTERVAL = 500;  // Faster LCD updates
 unsigned long lastSerialSend = 0;
-const unsigned long SERIAL_INTERVAL = 500;  // Send data every 0.5 seconds
+const unsigned long SERIAL_INTERVAL = 300;  // Send data every 300ms for real-time feel
 
 bool ledState = false;
 unsigned long lastLedToggle = 0;
@@ -240,6 +240,8 @@ void handleLEDAlert(unsigned long currentMillis) {
   if (alertActive) {
     if (alertType == "FIRE") {
       LED_BLINK_INTERVAL = 100;
+    } else if (alertType == "FALL") {
+      LED_BLINK_INTERVAL = 120;
     } else if (alertType == "VIOLENCE" || alertType == "WEAPON") {
       LED_BLINK_INTERVAL = 150;
     } else {
@@ -252,6 +254,8 @@ void handleLEDAlert(unsigned long currentMillis) {
       if (ledState) {
         if (alertType == "FIRE") {
           setRGBColor(255, 0, 0);  // RED
+        } else if (alertType == "FALL") {
+          setRGBColor(255, 50, 0);  // ORANGE-RED for fall
         } else if (alertType == "VIOLENCE" || alertType == "WEAPON") {
           setRGBColor(255, 0, 0);  // RED
         } else if (alertType == "INTRUSION") {
@@ -321,6 +325,10 @@ void processSerialCommands() {
       triggerAlert("FIRE");
       Serial.println(F("{\"response\":\"FIRE_ALERT_ACTIVATED\"}"));
     }
+    else if (command == "FALL") {
+      triggerAlert("FALL");
+      Serial.println(F("{\"response\":\"FALL_ALERT_ACTIVATED\"}"));
+    }
     else if (command == "INTRUSION") {
       triggerAlert("INTRUSION");
       Serial.println(F("{\"response\":\"INTRUSION_ALERT_ACTIVATED\"}"));
@@ -366,3 +374,4 @@ void processSerialCommands() {
     }
   }
 }
+
