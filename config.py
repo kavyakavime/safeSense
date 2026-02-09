@@ -18,6 +18,15 @@ TEMP_ALERT_C = float(os.getenv("TEMP_ALERT_C", "40"))
 PERSON_DISTANCE_CM = float(os.getenv("PERSON_DISTANCE_CM", "100"))
 PERSON_DISTANCE_CLOSE_CM = float(os.getenv("PERSON_DISTANCE_CLOSE_CM", "50"))
 
+# Flood detection
+HUMIDITY_FLOOD_THRESHOLD = float(os.getenv("HUMIDITY_FLOOD_THRESHOLD", "45"))
+FLOOD_CONFIDENCE = float(os.getenv("FLOOD_CONFIDENCE", "0.45"))
+
+# Fall detection
+FALL_CONFIDENCE_THRESHOLD = float(os.getenv("FALL_CONFIDENCE_THRESHOLD", "0.25"))
+FALL_PROXIMITY_CM = float(os.getenv("FALL_PROXIMITY_CM", "50"))
+FALL_RISK_DISTANCE_CM = float(os.getenv("FALL_RISK_DISTANCE_CM", "100"))
+
 # Vitals thresholds
 HEART_RATE_HIGH = int(os.getenv("HEART_RATE_HIGH", "100"))
 STRESS_HIGH = float(os.getenv("STRESS_HIGH", "0.70"))
