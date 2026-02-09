@@ -2,12 +2,34 @@ import threading
 import time
 from dataclasses import asdict
 
+try:
+    import numpy as np
+    _HAS_NUMPY = True
+except ImportError:
+    _HAS_NUMPY = False
+
 from flask import Flask, Response, jsonify, render_template, request
 
 import config
+
+
+def _make_json_serializable(obj):
+    """Convert numpy types to native Python for JSON serialization"""
+    if _HAS_NUMPY and hasattr(obj, 'dtype') and hasattr(obj, 'item'):
+        return obj.item()
+    if _HAS_NUMPY and isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, dict):
+        return {k: _make_json_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_json_serializable(v) for v in obj]
+    return obj
+
+
 from alert_manager import AlertManager
 from camera_manager import CameraManager
 from detector import Detector, Vitals, assess_emergency_level
+from fall_detector import MotionTracker, FallDetection
 from presage_manager import PresageManager
 from recorder import RecordingManager
 from sensor_manager import SensorManager
@@ -54,7 +76,8 @@ def update_state(ai, vitals, sensor, assessment, recording_state=None):
 
 def get_state():
     with state_lock:
-        return dict(latest_state)
+        state = dict(latest_state)
+        return _make_json_serializable(state)
 
 
 def _draw_boxes(frame, boxes):
@@ -70,6 +93,8 @@ def _draw_boxes(frame, boxes):
 
         if label in {"fire", "smoke"}:
             color = (0, 0, 255)
+        elif "flood" in label or "water" in label:
+            color = (255, 200, 0)
         elif label == "person":
             color = (0, 255, 0)
         else:
@@ -102,11 +127,32 @@ def background_loop():
         presage.start()
     last_alert_time = 0
     last_level = None
+    motion_tracker = MotionTracker(history_size=15)
 
     while True:
         sensor = sensor_mgr.get_data()
         frame, _ = camera.get_frame()
         ai = detector.detect(frame=frame)
+
+        person_box = ai.person_box
+        motion_tracker.update(sensor.distance_cm, person_box)
+        fall_detection = motion_tracker.get_fall_detection()
+
+        ai = type(ai)(
+            fire=ai.fire,
+            fire_confidence=ai.fire_confidence,
+            flood=ai.flood,
+            flood_confidence=ai.flood_confidence,
+            person=ai.person,
+            fall_detected=fall_detection.fall_detected,
+            fall_confidence=fall_detection.fall_confidence,
+            fall_risk=fall_detection.fall_risk,
+            fall_risk_confidence=fall_detection.fall_risk_confidence,
+            climbing=fall_detection.climbing,
+            climbing_confidence=fall_detection.climbing_confidence,
+            person_box=ai.person_box,
+            boxes=ai.boxes,
+        )
 
         with vitals_lock:
             vitals_snapshot = dict(latest_vitals)
@@ -124,7 +170,7 @@ def background_loop():
             vitals = presage.get_vitals()
         else:
             vitals = detector.read_vitals()
-        assessment = assess_emergency_level(ai, vitals, sensor)
+        assessment = assess_emergency_level(ai, vitals, sensor, fall_detection=fall_detection)
 
         with demo_lock:
             if demo_override["enabled"] and demo_override["expires_at"]:
@@ -162,7 +208,12 @@ def background_loop():
             # Send alert to Arduino for LED/LCD display
             arduino_command = "FIRE" if ai.fire else "HAZARD"
             if assessment.level == "CRITICAL":
-                arduino_command = "FIRE" if ai.fire else "VIOLENCE"
+                if ai.fall_detected:
+                    arduino_command = "FALL"
+                elif ai.fire:
+                    arduino_command = "FIRE"
+                else:
+                    arduino_command = "VIOLENCE"
             sensor_mgr.send_command(arduino_command)
             
             last_alert_time = now
