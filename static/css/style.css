@@ -119,6 +119,33 @@ body {
 .status[data-level="MEDIUM"] { color: #ffd166; }
 .status[data-level="LOW"] { color: var(--ok); }
 
+.detection-breakdown {
+  display: flex;
+  gap: 24px;
+  margin: 12px 0;
+  padding: 12px 0;
+  border-top: 1px solid #1f2c33;
+  border-bottom: 1px solid #1f2c33;
+  flex-wrap: wrap;
+}
+
+.detection-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detection-label {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.detection-value {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text);
+}
+
 .reason {
   color: var(--muted);
 }
