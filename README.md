@@ -16,6 +16,7 @@ SafeSense was built to answer one question:
 
 Our goal was to create a **real-time hazard detection system** that prevents disasters instead of just documenting them — while eliminating false alarms that make existing systems unreliable.
 
+Demo: https://www.youtube.com/watch?v=yAHVaK9cRas 
 ---
 
 ## What SafeSense Does
