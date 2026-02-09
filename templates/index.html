@@ -40,14 +40,24 @@
       <div class="panel full">
         <h2>Emergency Status</h2>
         <div class="status" id="status">--</div>
+        <div class="detection-breakdown">
+          <div class="detection-item"><span class="detection-label">Fire</span><span class="detection-value" id="ai-fire">--</span></div>
+          <div class="detection-item"><span class="detection-label">Flood</span><span class="detection-value" id="ai-flood">--</span></div>
+          <div class="detection-item"><span class="detection-label">Person</span><span class="detection-value" id="ai-person">--</span></div>
+          <div class="detection-item"><span class="detection-label">Fall</span><span class="detection-value" id="ai-fall">--</span></div>
+          <div class="detection-item"><span class="detection-label">Fall Risk</span><span class="detection-value" id="ai-fall-risk">--</span></div>
+          <div class="detection-item"><span class="detection-label">Climbing</span><span class="detection-value" id="ai-climbing">--</span></div>
+        </div>
         <div class="reason" id="reason">--</div>
       </div>
 
       <div class="panel full">
         <h2>Alert History</h2>
         <div class="alert-actions">
-          <button id="demo-trigger">Trigger Demo Alert</button>
-          <span class="hint">Triggers a 10s CRITICAL alert</span>
+          <button id="demo-trigger">🔥 Fire Alert</button>
+          <button id="demo-flood">🌊 Flood Alert</button>
+          <button id="demo-fall">🚨 Fall Alert</button>
+          <span class="hint">Test alerts (10s)</span>
         </div>
         <div class="alert-list" id="alert-list">No alerts yet.</div>
       </div>
@@ -68,6 +78,7 @@
       const sensor = data.sensor || {};
       const vitals = data.vitals || {};
       const assessment = data.assessment || {};
+      const ai = data.ai || {};
 
       document.getElementById('temp').textContent = sensor.temperature_c != null ? `${sensor.temperature_c} °C` : "--";
       document.getElementById('hum').textContent = sensor.humidity != null ? `${sensor.humidity} %` : "--";
@@ -79,8 +90,22 @@
       document.getElementById('overlay-vitals').textContent = `Vitals: ${vitalsText}`;
 
       const level = assessment.level || "--";
-      document.getElementById('status').textContent = `${level} (${assessment.confidence || 0}%)`;
+      const conf = assessment.confidence ?? 0;
+      document.getElementById('status').textContent = `${level} (${conf}%)`;
       document.getElementById('status').setAttribute('data-level', level);
+
+      const firePct = (ai.fire_confidence ?? 0) * 100;
+      const floodPct = (ai.flood_confidence ?? 0) * 100;
+      const fallPct = (ai.fall_confidence ?? 0) * 100;
+      const fallRiskPct = (ai.fall_risk_confidence ?? 0) * 100;
+      const climbPct = (ai.climbing_confidence ?? 0) * 100;
+      document.getElementById('ai-fire').textContent = `${Math.round(firePct)}%`;
+      document.getElementById('ai-flood').textContent = `${Math.round(floodPct)}%`;
+      document.getElementById('ai-person').textContent = ai.person ? "Yes" : "No";
+      document.getElementById('ai-fall').textContent = `${Math.round(fallPct)}%`;
+      document.getElementById('ai-fall-risk').textContent = `${Math.round(fallRiskPct)}%`;
+      document.getElementById('ai-climbing').textContent = `${Math.round(climbPct)}%`;
+
       document.getElementById('reason').textContent = assessment.reason || "--";
       document.getElementById('overlay-status').textContent = `Status: ${level}`;
     }
@@ -120,7 +145,25 @@
       await fetch('/api/demo/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level: 'CRITICAL', seconds: 10 })
+        body: JSON.stringify({ level: 'CRITICAL', seconds: 10, reason: '🔥 FIRE DETECTED (Demo)' })
+      });
+      refresh();
+      refreshAlerts();
+    });
+    document.getElementById('demo-flood').addEventListener('click', async () => {
+      await fetch('/api/demo/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: 'CRITICAL', seconds: 10, reason: '🌊 FLOOD DETECTED (Demo)' })
+      });
+      refresh();
+      refreshAlerts();
+    });
+    document.getElementById('demo-fall').addEventListener('click', async () => {
+      await fetch('/api/demo/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: 'CRITICAL', seconds: 10, reason: '🚨 FALL DETECTED - Person down (Demo)' })
       });
       refresh();
       refreshAlerts();
